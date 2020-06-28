@@ -3,24 +3,21 @@
 		<Breadcrumb title="表格数据" icon="el-icon-s-grid"></Breadcrumb>
 		<div class="card-box">
 			<el-card shadow="never" style="border-radius: 10px;">
-				<!-- <el-tooltip v-for="toolsTab in generalBaseDataToolsTabs" class="item" effect="dark" :content="toolsTab.content" placement="bottom" :key="toolsTab.title">
-					<el-button type="text" :icon="toolsTab.icon">{{toolsTab.title}}</el-button>
-				</el-tooltip> -->
+				
 				<div class="tools-container">
 					<div class="tools-left">
 						<el-button type="danger" size="small" icon="el-icon-delete" @click="deleteSelections(multipleSelections)">批量删除</el-button>
 						<el-input prefix-icon="el-icon-search" size="small" placeholder="请输入关键字检索..."></el-input>
 					</div>
 					<div class="tools-right">
-						<el-button type="text" icon="el-icon-plus" @click="addTableDatas('添加数据')">添加数据</el-button>
-						<el-button type="text" icon="el-icon-s-data">数据统计</el-button>
-						<el-button type="text" icon="el-icon-picture-outline" @click="exportAsImage()">生成图片</el-button>
-						<el-button type="text" icon="el-icon-download">保存数据</el-button>
+            <el-tooltip v-for="toolsTab in generalBaseDataToolsTabs" class="item" effect="dark" :content="toolsTab.content" placement="bottom" :key="toolsTab.title">
+              <el-button type="text" :icon="toolsTab.icon" @click="loopEvents(toolsTab.events, toolsTab.args)">{{toolsTab.title}}</el-button>
+            </el-tooltip>
 					</div>
 				</div>
 				<!-- table 存放数据的表格 -->
 				<div class="table-container" ref="tableDatas">
-					<el-table empty-text="No Datas..." :data="tableDatasInAPI.slice((paginationObj.currentPage - 1)*paginationObj.pageSize,paginationObj.currentPage*paginationObj.pageSize)" @selection-change="handleSelectionChange" show-header>
+					<el-table :data="tableDatasInAPI.slice((paginationObj.currentPage - 1)*paginationObj.pageSize,paginationObj.currentPage*paginationObj.pageSize)" @selection-change="handleSelectionChange" show-header>
 						<el-table-column type="selection" width="50"></el-table-column>
 						<el-table-column prop="_id" label="ID" width="250"></el-table-column>
 						<el-table-column prop="name" label="Name" width="140"></el-table-column>
@@ -85,8 +82,8 @@
 		    <el-button type="primary" @click="submitTableDatas(dialogFormTitle, newFormDatas._id)">Confirm</el-button>
 		  </div>
 		</el-dialog>
-		
-		<el-dialog title="图片预览" :visible.sync="dialogImageVisible" width="80%">
+		<!-- dialog 对话框：用于预览图片和保存图片 -->
+		<el-dialog title="图片预览" :visible.sync="dialogImageVisible" width="60%">
 			<el-image :src="imageURL" :preview-src-list="[imageURL]" title="点击预览图片"></el-image>
 			<div class="download-btn" style="padding: 10px 14px 0 0; display: flex; justify-content: flex-end;">
 				<el-button type="text" icon="el-icon-download" @click="saveInLocal">保存到本地</el-button>
@@ -100,14 +97,14 @@
 import { Component, Vue, Mixins } from 'vue-property-decorator';
 import Breadcrumb from '../components/Breadcrumb.vue';
 import html2canvas from 'html2canvas';
+import TableDatasMixins from '../mixins/general-base-data';
 
 @Component({
   components: {
     Breadcrumb,
   },
 })
-
-export default class TableData extends Vue {
+export default class TableData extends Mixins(TableDatasMixins) {
   // 用于接收后台API接口中的数据
   private tableDatasInAPI: any[] = [];
   // 对话框表单是否可见
@@ -118,8 +115,6 @@ export default class TableData extends Vue {
   private dialogFormTitle: string = '';
   // 表单对象，用于绑定数据
   private newFormDatas: any  = {};
-  // element-ui弹窗对象
-  private $message: any = null;
   // 分页数据对象
   private paginationObj: any = {
     pageSize: 5,
@@ -132,16 +127,20 @@ export default class TableData extends Vue {
   // private isChecked: boolean = false;
   // 获取数据
   private async fetchTableDatasInAPI() {
-    const res = await this.axios.get('table-datas');
+    const res = await this.$axios.get('table-datas');
     this.tableDatasInAPI = res.data;
   }
   // 点击编辑按钮获取当前数据
   private async idetTableDatas(title: string, id: any) {
     this.dialogFormVisible = true;
     this.dialogFormTitle = title;
-    const { data: res } = await this.axios.get(`table-datas/${id}`);
+    const { data: res } = await this.$axios.get(`table-datas/${id}`);
     this.newFormDatas = res;
     // console.log(res);
+  }
+  // 循环绑定事件
+  private loopEvents(event: any, args?: any) {
+    this[event](args || '');
   }
   // 点击添加数据打开对话框
   private addTableDatas(title: string) {
@@ -149,10 +148,21 @@ export default class TableData extends Vue {
     this.dialogFormVisible = true;
     this.dialogFormTitle = title;
   }
+  // 提交数据
+  private async submitTableDatas(title: string, id: any) {
+    // console.log(id)
+    if (title === '添加数据') {
+      await this.$axios.post('table-datas', this.newFormDatas);
+    } else {
+      await this.$axios.put(`table-datas/${id}`, this.newFormDatas);
+    }
+    this.dialogFormVisible = false;
+    this.fetchTableDatasInAPI();
+  }
   // 将表格数据预览为图片
   private exportAsImage() {
     this.dialogImageVisible = true;
-    html2canvas(this.$refs.tableDatas).then((canvas: any) => {
+    html2canvas(this.$refs.tableDatas as HTMLElement).then((canvas: any) => {
       this.imageURL  = canvas.toDataURL('image/png');
       // console.log(this.imgUrl)
     });
@@ -164,20 +174,18 @@ export default class TableData extends Vue {
     alink.download = 'TableDatats'; // 图片名
     alink.click();
   }
-  // 提交数据
-  private async submitTableDatas(title: string, id: any) {
-    // console.log(id)
-    if (title === '添加数据') {
-      await this.axios.post('table-datas', this.newFormDatas);
-    } else {
-      await this.axios.put(`table-datas/${id}`, this.newFormDatas);
-    }
-    this.dialogFormVisible = false;
-    this.fetchTableDatasInAPI();
-  }
+  // // 将数据导出为Excel
+  // private exportAsExcel() {
+  //   console.log('exportAsExcel');
+  // }
+  // // 统计表格中的数据
+  // private statisticsDatas() {
+  //   console.log('statisticsDatas');
+  // }
+
   // 删除数据
   private async deleteTableDatas(id: any) {
-    await this.axios.delete(`table-datas/${id}`);
+    await this.$axios.delete(`table-datas/${id}`);
     this.fetchTableDatasInAPI();
   }
    // 格式化日期为yy-mm-dd
@@ -197,7 +205,7 @@ export default class TableData extends Vue {
   // 批量删除
   private deleteSelections(rows: any[]) {
     rows.forEach(async (row) => {
-      await this.axios.delete(`table-datas/${row._id}`);
+      await this.$axios.delete(`table-datas/${row._id}`);
       this.fetchTableDatasInAPI();
     });
   }
