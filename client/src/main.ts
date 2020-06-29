@@ -9,9 +9,9 @@ import './assets/css/global.css';
 import moment from 'moment';
 // 中文简体
 moment.locale('zh-cn');
-Vue.filter('dateformat', (dataStr: string, pattern = 'YYYY-MM-DD HH:mm:ss') =>{
-    return moment(dataStr).format(pattern)
-})
+Vue.filter('dateformat', (dataStr: string, pattern = 'YYYY-MM-DD HH:mm:ss') => {
+    return moment(dataStr).format(pattern);
+});
 
 Vue.config.productionTip = false;
 
