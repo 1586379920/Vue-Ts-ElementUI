@@ -36,15 +36,15 @@
                        type="text" 
                        @click="addWeekPlans('添加事项')">添加事项</el-button>
           </div>
-          <el-table :data="weekPlanList.slice((currentPage - 1) * pageSize, currentPage * pageSize)" width="100%" size="small" :default-sort = "{prop: 'finish', order: 'ascending'}">
+          <el-table :data="weekPlanList" width="100%" height="321px" size="small" :default-sort = "{prop: 'finish', order: 'ascending'}">
             <el-table-column sortable label="开始日期" prop="start" width="130"></el-table-column>
             <el-table-column sortable label="截止日期" prop="end" width="130"></el-table-column>
             <el-table-column sortable label="重要程度" prop="importance" width="150">
               <template slot-scope="scope">
-                <el-rate v-model="scope.row.importance" disabled :colors="['#99A9BF', '#F7BA2A', '#C71010']"></el-rate>
+                <el-rate v-model="scope.row.importance" disabled :colors="['#CAAE1E', '#925F5F', '#C71010']"></el-rate>
               </template>
             </el-table-column>
-            <el-table-column label="安排事项" prop="plan" width="320"></el-table-column>
+            <el-table-column label="安排事项" prop="plan" width="310"></el-table-column>
             <el-table-column sortable label="进度" prop="finish" width="150">
               <template  slot-scope="scope">
                 <el-tag v-if="scope.row.finish" type="success" size="mini">已完成</el-tag>
@@ -59,17 +59,23 @@
               </template>
             </el-table-column>
           </el-table>
-          <el-pagination style="margin-top: 12px"
-            :total="weekPlanList.length"
-            @current-change="handleCurrentChange"
-            :current-page="currentPage"
-            :page-size="pageSize"
-            layout="prev, pager, next">
-          </el-pagination>
         </el-card>
       </div>
     </div>
+    <div class="echarts-container">
+      <el-card class="echarts-box" v-for="list in echartsList" :key="list.className">
+        <div :class="list.className" style="width: 100%; height: 220px;" :ref="list.reference"></div>
+      </el-card>
+    </div>
 
+    <div class="footer-container">
+      <el-card class="card-footer" shadow="never">
+        <p><i class="el-icon-user-solid"></i> @likeAskingWhy in 2020-06-25 to 2020-06-30 in Shanghai. Thank you for watching!</p>
+        <p><i class="el-icon-share"></i> https://github.com/likeAskingWhy & Email: 1134488372@qq.com</p>
+      </el-card>
+    </div>
+
+    <!-- 表单对话框，用于添加和修改数据 -->
     <el-dialog :title="dialogFormTitle" :visible.sync="dialogFormVisible" width="800px">
 		  <el-form :model="newWeekPlans" style="display: flex; flex-wrap: wrap;">
 		  	<el-form-item label="开始日期" label-width="120px">
@@ -107,9 +113,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Mixins } from 'vue-property-decorator';
 import Breadcrumb from '../components/Breadcrumb.vue';
 import moment from 'moment';
+import GeneralBaseData from '../mixins/general-base-data';
+import * as echarts from 'echarts';
+import { barOptions, pieOptions, lineOptions } from '../echarts_options/base-echarts-options';
 
 @Component({
   components: {
@@ -117,30 +126,22 @@ import moment from 'moment';
   },
 })
 
-export default class SystemMain extends Vue {
-  private LOCAL_TIME: any = new Date();
-  private weekDays: string[] = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-  private LOCAL_DAY: any = this.weekDays[new Date().getDay()];
+export default class SystemMain extends Mixins(GeneralBaseData) {
+  // 每周事项的列表
   private weekPlanList: any[] = [];
+  // 新事项的对象
   private newWeekPlans: any = {};
-  private dialogFormVisible: boolean = false;
-  private dialogFormTitle: string = '';
-  private currentPage: any = 1;
-  private pageSize: any = 5;
-
-  private get getIcon() {
-    const hours = new Date().getHours();
-    if (hours >= 7 && hours < 19) {
-      return 'el-icon-sunny';
-    } else {
-      return 'el-icon-moon';
-    }
-  }
+  
+  
+  
   private mounted() {
     const that = this;
     this.timer = setInterval(() => {
       that.LOCAL_TIME = new Date();
     }, 1000);
+    this.exportBarEchart();
+    this.exportPieEchart();
+    this.exportLineEchart();
   }
   private beforeDestroy() {
     if (this.timer) {
@@ -152,7 +153,6 @@ export default class SystemMain extends Vue {
     this.weekPlanList = res.data;
   }
   private async submitWeekPlans(id?: string) {
-    // console.log(id)
     if (this.dialogFormTitle === '添加事项') {
       await this.$axios.post('week-plans', this.newWeekPlans);
     } else {
@@ -167,22 +167,10 @@ export default class SystemMain extends Vue {
   }
 
   private async finishPlans(id: string, isFinished: boolean) {
-    const obj = { finish: !isFinished };
+    const obj = { finish: !isFinished, _id: id };
     const form = Object.assign(this.newWeekPlans, obj);
     await this.$axios.put(`week-plans/${id}`, form);
     this.fetchWeekPlanList();
-  }
-
-
-   // 格式化日期为yy-mm-dd
-  private formartDate1(val: any) {
-    this.newWeekPlans.start = val;
-  }
-  private formartDate2(val: any) {
-    this.newWeekPlans.end = val;
-  }
-  private handleCurrentChange(val: any) {
-    this.currentPage = val;
   }
 
   private addWeekPlans(title: string) {
@@ -194,6 +182,37 @@ export default class SystemMain extends Vue {
     this.dialogFormTitle = title;
     const { data: res } = await this.$axios.get(`week-plans/${id}`);
     this.newWeekPlans = res;
+  }
+  
+  private exportBarEchart() {
+    let elem = this.$refs.barechart[0] as HTMLElement;
+    console.log(elem);
+    if(elem) {
+      const barEchart = echarts.init(elem);
+      barEchart.setOption(barOptions);
+    } else {
+      console.log('elem为空');
+    }
+  }
+  private exportPieEchart() {
+    let elem = this.$refs.pieechart[0] as HTMLElement;
+    console.log(elem);
+    if(elem) {
+      const pieEchart = echarts.init(elem);
+      pieEchart.setOption(pieOptions);
+    } else {
+      console.log('elem为空');
+    }
+  }
+  private exportLineEchart() {
+    let elem = this.$refs.lineechart[0] as HTMLElement;
+    console.log(elem);
+    if(elem) {
+      const lineEchart = echarts.init(elem);
+      lineEchart.setOption(lineOptions);
+    } else {
+      console.log('elem为空');
+    }
   }
 
   private created() {
@@ -208,7 +227,7 @@ export default class SystemMain extends Vue {
   }
   .main-container {
     display: flex;
-    padding: 20px 0;
+    padding: 20px 0 12px;
     justify-content: space-between;
     font-family: "Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","微软雅黑",Arial,sans-serif;
     .main-left {
@@ -242,4 +261,26 @@ export default class SystemMain extends Vue {
       }
     }
   }
+  .echarts-container {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 12px;
+    .echarts-box {
+      flex: 1;
+      box-shadow: none;
+    }
+    .echarts-box:nth-child(2) {
+      margin: 0 12px;
+    }
+  }
+  .footer-container{
+      display: flex;
+      .card-footer {
+        flex: 1;
+        p {
+          margin: 7px 0;
+          font-size: 12px;
+        }
+      }
+    }
 </style>

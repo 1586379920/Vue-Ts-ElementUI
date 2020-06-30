@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "core-js": "^3.6.5",
+    "echarts": "^4.8.0",
     "element-ui": "^2.4.5",
     "html2canvas": "^1.0.0-rc.5",
     "moment": "^2.27.0",

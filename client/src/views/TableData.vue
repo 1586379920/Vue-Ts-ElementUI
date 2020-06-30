@@ -97,22 +97,18 @@
 import { Component, Vue, Mixins } from 'vue-property-decorator';
 import Breadcrumb from '../components/Breadcrumb.vue';
 import html2canvas from 'html2canvas';
-import TableDatasMixins from '../mixins/general-base-data';
+import GeneralBaseData from '../mixins/general-base-data';
 
 @Component({
   components: {
     Breadcrumb,
   },
 })
-export default class TableData extends Mixins(TableDatasMixins) {
+export default class TableData extends Mixins(GeneralBaseData) {
   // 用于接收后台API接口中的数据
   private tableDatasInAPI: any[] = [];
-  // 对话框表单是否可见
-  private dialogFormVisible: boolean = false;
   // 对话框图片表单是否可见
   private dialogImageVisible: boolean = false;
-  // 对话框表单的标题
-  private dialogFormTitle: string = '';
   // 表单对象，用于绑定数据
   private newFormDatas: any  = {};
   // 分页数据对象
@@ -124,7 +120,6 @@ export default class TableData extends Mixins(TableDatasMixins) {
   private imageURL: string = '';
   // 批量选中数据
   private multipleSelections: any[] = [];
-  // private isChecked: boolean = false;
   // 获取数据
   private async fetchTableDatasInAPI() {
     const res = await this.$axios.get('table-datas');
@@ -188,10 +183,7 @@ export default class TableData extends Mixins(TableDatasMixins) {
     await this.$axios.delete(`table-datas/${id}`);
     this.fetchTableDatasInAPI();
   }
-   // 格式化日期为yy-mm-dd
-  private formartDate(val: any) {
-    this.newFormDatas.birthDate = val;
-  }
+   
   private handleSizeChange(val: any) {
     this.paginationObj.pageSize = val;
   }
